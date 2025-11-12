@@ -13,6 +13,7 @@ CORS(app)  # 默认允许所有域名访问
 
 streamable_chain = StreamableRunnable(get_llm())
 
+
 def query(question: str, qa_chain, show_sources: bool = False):
     """执行问答，增加异常捕获"""
     try:
@@ -38,23 +39,25 @@ def query(question: str, qa_chain, show_sources: bool = False):
 
     return answer, sources
 
+
 def generate_stream(question: str, show_sources: bool):
     """生成流式响应"""
     try:
-        # 使用 stream 方法直接获取生成器       
+        # 使用 stream 方法直接获取生成器
         for chunk in qa_chain.stream({"query": question}):
             # 处理每个 chunk
             if hasattr(chunk, 'get'):
-                token = chunk.get('answer', '') or chunk.get('text', '') or chunk.get('result', '')
+                token = chunk.get('answer', '') or chunk.get(
+                    'text', '') or chunk.get('result', '')
             else:
                 token = str(chunk)
-            
+
             if token:
                 yield f"data: {json.dumps({'token': token})}\n\n"
-        
+
         # 获取最终结果用于来源显示
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
-        
+
     except Exception as e:
         yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
@@ -72,6 +75,7 @@ def handle_query():
 
         if not question:
             return jsonify({"error": "问题不能为空"}), 400
+
         if not stream:
             answer, sources = query(question, qa_chain, show_sources)
             return jsonify({
@@ -82,6 +86,16 @@ def handle_query():
         else:
             # 流式输出 NDJSON，每行一个 JSON token
             def gen():
+                # 先检查是否有相关文档
+                # 直接使用 Chat_QA_chain 实例中的检索器
+                retriever = chat_qa_chain.retriever
+                relevant_docs = retriever.get_relevant_documents(question)
+
+                if not relevant_docs:
+                    yield json.dumps({"token": "在提供的文档中未找到相关信息，无法回答该问题。"}, ensure_ascii=False) + "\n"
+                    yield json.dumps({"type": "done"}, ensure_ascii=False) + "\n"
+                    return
+
                 for token in streamable_chain.stream(question):
                     # 去掉多余空格和换行
                     clean_token = re.sub(r'\s+', ' ', token).strip()
@@ -91,7 +105,7 @@ def handle_query():
 
             return Response(stream_with_context(gen()),
                             content_type="application/x-ndjson; charset=utf-8")
-        
+
     except Exception as e:
         return jsonify({"error": f"处理请求时发生错误: {str(e)}"}), 500
 
@@ -99,7 +113,7 @@ def handle_query():
 @app.route("/", methods=['GET'])
 def index():
     return jsonify({"message": "Hello World"})
-    
+
 
 if __name__ == "__main__":
     file_path = "./data"  # Replace with your actual file path

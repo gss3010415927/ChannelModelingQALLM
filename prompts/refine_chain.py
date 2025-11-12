@@ -3,55 +3,85 @@ from model_to_llm import get_llm
 
 
 class RefineChainPrompts:
-    # 定义信道建模领域的专业技术助手的Prompt模板-------Refine Chain
+    """Refine Chain 专用 Prompt 模板 —— 严格基于检索内容，不得臆造"""
+
     @staticmethod
     def get_initial_prompt():
-        # 定义初始 prompt（用于第一个文档）
-        initial_template = """你是一名信道建模领域的专业技术助手，下面是文档片段和用户问题，请根据文档内容给出初步回答，请用纯文本回答。
+        """
+        初始 prompt：仅基于检索内容回答用户问题。
+        模型必须遵守：
+        - 不得引用外部知识；
+        - 若文档中没有相关信息，只能回答固定句式。
+        """
+        initial_template = """你是一名信道建模领域的专业技术助手。
+你的任务是根据给定的【检索到的文档内容】回答用户问题。
 
-        文档内容：
-        {context}
+请严格遵守以下规则：
+1. 仅依据提供的文档内容（即 context 部分），不得添加、推测或扩展任何外部知识；
+2. 如果文档中没有相关信息，请只回答：
+   “根据已检索内容无法确定”；
+3. 禁止输出模型的思考过程、解释、分析或其他说明；
+4. 如果文档内容为空（即未检索到任何内容），请直接回答：“根据已检索内容无法确定”；
+5. **必须使用 Markdown 格式输出内容**，包括标题（#、##、###）、列表（-）、表格（|…|）、加粗（**…**）等。
 
-        用户问题：{question}
+---------------------
+【文档内容】
+{context}
 
-        请给出简明扼要的初步回答："""
+【用户问题】
+{question}
 
-        initial_prompt = PromptTemplate(
+---------------------
+请基于文档内容直接作答，且严格使用 Markdown 格式：
+"""
+
+        return PromptTemplate(
             template=initial_template,
             input_variables=["context", "question"]
         )
-        return initial_prompt
 
     @staticmethod
     def get_refine_prompt():
-        # 定义精炼 prompt（用于后续文档迭代精炼）
-        refine_template = """你是一名信道建模领域的专业技术助手，我们将根据新的文档内容，在保持原回答逻辑严谨的前提下，改进之前给出的回答。
+        """
+        精炼 prompt：基于新增文档修正已有回答。
+        模型仍然必须仅依据文档，不得臆造。
+        """
+        refine_template = """你是一名信道建模领域的专业技术助手。
+我们将基于新的【检索内容】完善之前的回答。
 
-        已有回答：{prev_response}
+请严格遵守以下规则：
+1. 仅依据提供的文档内容（即 context 部分），不得使用外部知识或主观臆测；
+2. 若新内容与已有回答一致，则保持不变；
+3. 若新内容提供更多细节，请补充；
+4. 若新内容与原回答矛盾，则以新内容为准；
+5. 如果文档中没有相关信息，请只回答：
+   “根据已检索内容无法确定”；
+6. 禁止解释、举例、联想或生成与文档无关的文本；
+7. **必须使用 Markdown 格式输出内容**，包括标题（#、##、###）、列表（-）、表格（|…|）、加粗（**…**）等。
 
-        现在有新的文档内容需要参考：
-        {context}
+---------------------
+【已有回答】
+{prev_response}
 
-        请基于新文档内容完善已有回答：
-        - 如果新内容与已有回答一致，保持原回答
-        - 如果新内容提供了更多信息，补充到回答中
-        - 如果新内容与已有回答矛盾，以新内容为准
+【新的文档内容】
+{context}
 
-        完善后的回答："""
+【用户问题】
+{question}
 
-        refine_prompt = PromptTemplate(
+---------------------
+请基于文档内容给出完善后的最终回答，且严格使用 Markdown 格式：
+"""
+
+        return PromptTemplate(
             template=refine_template,
             input_variables=["prev_response", "context", "question"]
         )
-        return refine_prompt
 
     @staticmethod
     def get_document_prompt():
-        llm = get_llm()
-
-        # 文档格式化模板
-        document_prompt = PromptTemplate(
+        """文档格式化模板（用于拼接检索内容）"""
+        return PromptTemplate(
             input_variables=["page_content"],
             template="{page_content}"
         )
-        return document_prompt

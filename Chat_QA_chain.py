@@ -11,6 +11,8 @@ class Chat_QA_chain():
     def __init__(self, file_path):
         self.file_path = file_path
         self.vector_store = create_db(file_path)
+        self.retriever = VectorRetriever(self.vector_store).get_retriever(
+            score_threshold=0.4, k=3)
 
     def build_qa_chain(self):
         """创建基于检索的问答链"""
@@ -37,10 +39,8 @@ class Chat_QA_chain():
             document_variable_name="context",     # 与 prompt 中的变量对应
             initial_response_name="prev_response"  # 与 refine prompt 中的变量对应
         )
-        retriever = VectorRetriever(self.vector_store).get_retriever(
-            score_threshold=0.1, k=2)
         qa_chain = RetrievalQA(
-            retriever=retriever,
+            retriever=self.retriever,
             combine_documents_chain=refine_chain,
             return_source_documents=True,
         )

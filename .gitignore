@@ -1,0 +1,4 @@
+# 忽略文件夹
+data
+__pycache__
+prompts/__pycache__
