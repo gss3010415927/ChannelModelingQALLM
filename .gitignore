@@ -2,3 +2,5 @@
 data
 __pycache__
 prompts/__pycache__
+chroma_db_all_docs
+retrievers/__pycache__
